@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Scientific Calculator with Currency Converter</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.1/lib/browser/math.js"></script>
+  <style>
+    :root {
+      --body:#1c1f25; --screen:#e8f7e8;
+      --btn:#2b2f38; --text:#f0f0f0;
+      --accent:#ff9f1a; --red:#ff5e5e; --green:#72e572;
+      --popup-bg:#ffffff; --popup-text:#000000;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; display:flex; justify-content:center; align-items:center;
+           height:100vh; background:#1e293b; font-family:'Segoe UI',sans-serif; }
+    .calc {
+      width:460px; background:var(--body); border-radius:24px;
+      padding:20px; box-shadow:0 20px 40px rgba(0,0,0,0.5);
+    }
+    .screen {
+      background:var(--screen); border-radius:10px;
+      padding:12px; text-align:right; min-height:100px;
+      box-shadow:inset 0 0 4px rgba(0,0,0,.3); margin-bottom:15px;
+      position:relative;
+    }
+    .status { font-size:12px; color:#444; margin-bottom:4px; }
+    .display-line { font-size:24px; color:#000; overflow-x:auto; white-space:nowrap; }
+    #result { font-size:28px; font-weight:bold; }
+    .keys {
+      display:grid; grid-template-columns:repeat(6,1fr); gap:8px;
+    }
+    button {
+      background:var(--btn); color:var(--text); border:none;
+      border-radius:8px; height:52px; font-size:16px;
+      cursor:pointer; box-shadow:0 3px 5px rgba(0,0,0,.25);
+      transition:all 0.15s; position:relative;
+    }
+    button:hover { box-shadow:0 0 10px var(--accent); transform:scale(1.03);}
+    button:active { transform:scale(0.95); }
+    .wide { grid-column:span 2; }
+    .red { background:var(--red); }
+    .orange { background:var(--accent); color:#000; font-weight:bold; }
+    .green { background:var(--green); color:#000; font-weight:bold; }
+    .popup {
+      position:absolute; top:5px; left:50%; transform:translateX(-50%);
+      background:var(--popup-bg); color:var(--popup-text);
+      padding:8px 12px; border-radius:8px;
+      box-shadow:0 3px 6px rgba(0,0,0,0.4);
+      font-size:14px; display:none; text-align:left;
+      z-index:10; white-space:pre-line;
+    }
+  </style>
+</head>
+<body>
+  <div class="calc">
+    <div class="screen">
+      <div class="status"><span id="stShift">SHIFT</span> | <span id="stAngle">DEG</span></div>
+      <div class="display-line" id="pretty"></div>
+      <div class="display-line" id="result">0</div>
+      <div id="popup" class="popup"></div>
+    </div>
+
+    <div class="keys">
+      <!-- Converters and controls -->
+      <button class="green" onclick="lengthConvert()">LEN</button>
+      <button class="green" onclick="massConvert()">MAS</button>
+      <button class="green" onclick="tempConvert()">TMP</button>
+      <button class="green" onclick="timeConvert()">TIM</button>
+      <button class="green" onclick="currencyConvert()">CUR</button>
+      <button class="red" onclick="clearAll()">AC</button>
+      <button onclick="del()">DEL</button>
+
+      <!-- Scientific & math -->
+      <button onclick="trig('sin')">sin</button>
+      <button onclick="trig('cos')">cos</button>
+      <button onclick="trig('tan')">tan</button>
+      <button onclick="powerXY()">x^y</button>
+      <button onclick="sqrtN()">√</button>
+      <button onclick="log10()">log</button>
+
+      <button onclick="press('7')">7</button>
+      <button onclick="press('8')">8</button>
+      <button onclick="press('9')">9</button>
+      <button onclick="press('(')">(</button>
+      <button onclick="press(')')">)</button>
+      <button onclick="press('/')">÷</button>
+
+      <button onclick="press('4')">4</button>
+      <button onclick="press('5')">5</button>
+      <button onclick="press('6')">6</button>
+      <button onclick="press('*')">×</button>
+      <button onclick="press('-')">−</button>
+      <button onclick="frac()">a/b</button>
+
+      <button onclick="press('1')">1</button>
+      <button onclick="press('2')">2</button>
+      <button onclick="press('3')">3</button>
+      <button onclick="press('+')">+</button>
+      <button onclick="ans()">Ans</button>
+      <button onclick="ln()">ln</button>
+
+      <button class="wide" onclick="press('0')">0</button>
+      <button onclick="press('.')">.</button>
+      <button class="orange wide" onclick="equal()">=</button>
+    </div>
+  </div>
+
+<script>
+  let expr="", latexExpr="", lastAns=0;
+  const pretty=document.getElementById("pretty"), result=document.getElementById("result");
+  const popup=document.getElementById("popup");
+
+  function render(){ try{ katex.render(latexExpr||"\\;", pretty,{throwOnError:false}); }catch{ pretty.textContent=latexExpr; } }
+  function press(ch){ expr+=ch; latexExpr+=ch.replace(/\*/g,'\\times ').replace(/\//g,'\\div '); render(); }
+  function equal(){ try{ lastAns=math.evaluate(expr); result.textContent=lastAns; }catch{ result.textContent="Error"; } }
+  function ans(){ expr+=`(${lastAns})`; latexExpr+=lastAns; render(); }
+  function del(){ expr=expr.slice(0,-1); latexExpr=latexExpr.slice(0,-1); render();}
+  function clearAll(){ expr=latexExpr=""; result.textContent="0"; render(); }
+  function showPopup(txt){ popup.innerText=txt; popup.style.display="block"; setTimeout(()=>popup.style.display="none",4000); }
+
+  // Converters
+  function lengthConvert(){ let v=parseFloat(prompt("Meters:")); if(isNaN(v))return; showPopup(
+    `${v} m = ${(v*100).toFixed(2)} cm\n${(v*1000).toFixed(2)} mm\n${(v/1000).toFixed(4)} km\n` +
+    `${(v*3.28084).toFixed(2)} ft\n${(v*39.3701).toFixed(2)} in`
+  ); }
+  function massConvert(){ let v=parseFloat(prompt("Kilograms:")); if(isNaN(v))return; showPopup(
+    `${v} kg = ${(v*1000).toFixed(2)} g\n${(v*1e6).toFixed(2)} mg\n`+
+    `${(v*2.20462).toFixed(2)} lb\n${(v*35.274).toFixed(2)} oz`
+  ); }
+  function tempConvert(){ let c=parseFloat(prompt("°C:")); if(isNaN(c))return; showPopup(
+    `${c}°C = ${(c*9/5+32).toFixed(2)}°F\n${(c+273.15).toFixed(2)} K`
+  ); }
+  function timeConvert(){ let s=parseFloat(prompt("Seconds:")); if(isNaN(s))return; showPopup(
+    `${s}s = ${(s/60).toFixed(2)} min\n${(s/3600).toFixed(2)} hr\n${(s/86400).toFixed(4)} days`
+  ); }
+
+  // Currency
+  async function currencyConvert(){
+    let amt = parseFloat(prompt("Enter amount (in USD):")); if(isNaN(amt))return;
+    let to = prompt("Convert USD to (currency code, e.g. INR, EUR):","INR");
+    if(!to) return;
+    try {
+      const resp = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await resp.json();
+      if(data.result==="success" && data.rates[to]){
+        let conv = (amt * data.rates[to]).toFixed(4);
+        showPopup(`${amt} USD ≈ ${conv} ${to}`);
+      } else {
+        showPopup("Conversion failed: currency code unsupported");
+      }
+    } catch {
+      showPopup("Network error fetching rates");
+    }
+  }
+
+  // basic math functions
+  function frac(){ let n=prompt("Numerator:"); if(n===null)return; let d=prompt("Denominator:"); if(d===null)return; expr+=`(${n})/(${d})`; latexExpr+=`\\frac{${n}}{${d}}`; render(); }
+  function sqrtN(){ let v=prompt("√(value):"); if(v===null)return; expr+=`sqrt(${v})`; latexExpr+=`\\sqrt{${v}}`; render(); }
+  function powerXY(){ let b=prompt("Base x:"); if(b===null)return; let p=prompt("Power y:"); if(p===null)return; expr+=`(${b})^(${p})`; latexExpr+=`{${b}}^{${p}}`; render(); }
+  function trig(fn){ let v=prompt(`${fn}(value):`); if(v===null)return; expr+=`${fn}(${v})`; latexExpr+=`\\${fn}(${v})`; render(); }
+  function log10(){ let v=prompt("log(value):"); if(v===null)return; expr+=`log10(${v})`; latexExpr+=`\\log(${v})`; render();}
+  function ln(){ let v=prompt("ln(value):"); if(v===null)return; expr+=`log(${v})`; latexExpr+=`\\ln(${v})`; render(); }
+
+  render();
+</script>
+</body>
+</html>
